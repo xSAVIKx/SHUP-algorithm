@@ -1,3 +1,4 @@
+# coding=utf-8
 from bitstring import BitArray
 
 __author__ = 'Iurii Sergiichuk <i.sergiichuk@samsung.com>'
@@ -158,11 +159,12 @@ class Crypter(object):
                 continue
             first_crypt_block.message_block ^= crypt_block.message_block
         crypt_block_list[0] = first_crypt_block
-
+        # todo доделать остальные шаги раунда зашифрования
         if self._current_round < 8:
             self._current_round += 1
         return Message.get_message_from_message_blocks(crypt_block_list)
 
+# TODO доделать SL преобразование
 
 m_k = MasterKey()
 message = Message()
