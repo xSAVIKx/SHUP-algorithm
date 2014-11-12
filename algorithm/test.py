@@ -1,5 +1,8 @@
 # coding=utf-8
-from bitstring import BitArray
+from bitstring import BitArray, pack
+
+from algorithm.util import sbox_1, sbox_2, sbox_3, sbox_4, galNI
+
 
 __author__ = 'Iurii Sergiichuk <i.sergiichuk@samsung.com>'
 
@@ -142,37 +145,107 @@ class Crypter(object):
         self._rounds_amount = 8
 
     def encrypt(self):
-        self._crypt_message = self._one_round_crypt()
+        self._crypt_message = self._one_round_crypt(self.message)
+        while self._current_round != self._rounds_amount:
+            self._crypt_message = self._one_round_crypt(self._crypt_message)
         return self._crypt_message
 
-    def _one_round_crypt(self):
+    def _one_round_crypt(self, message):
         round_keys = self.master_key.get_round_keys()
-        message_blocks = self.message.get_message_blocks()
+        message_blocks = message.get_message_blocks()
         crypt_block_list = []
 
         for round_key, message_block in zip(round_keys, message_blocks):
             crypt_block = round_key.key ^ message_block.message_block
             crypt_block_list.append(MessageBlock(crypt_block))
-        first_crypt_block = crypt_block_list[0]
-        for crypt_block in crypt_block_list:
-            if crypt_block == first_crypt_block:
-                continue
-            first_crypt_block.message_block ^= crypt_block.message_block
-        crypt_block_list[0] = first_crypt_block
-        # todo доделать остальные шаги раунда зашифрования
+        # XOR first block with others
+        for crypt_block_index in range(1, len(crypt_block_list)):
+            crypt_block_list[0].message_block ^= crypt_block_list[crypt_block_index].message_block
+        # make SL transformation with XOR to next block
+        for crypt_block_index in range(0, len(crypt_block_list) - 1):
+            crypt_block_list[crypt_block_index].message_block = self.sl_transformation(
+                crypt_block_list[crypt_block_index]).message_block ^ \
+                                                                crypt_block_list[crypt_block_index + 1].message_block
+        # make SL transformation with last block
+        crypt_block_list[len(crypt_block_list) - 1] = self.sl_transformation(
+            crypt_block_list[len(crypt_block_list) - 1])
+        for crypt_block_index in range(0, len(crypt_block_list) - 1):
+            crypt_block_list[crypt_block_index].message_block ^= crypt_block_list[
+                len(crypt_block_list) - 1].message_block
+
         if self._current_round < 8:
             self._current_round += 1
         return Message.get_message_from_message_blocks(crypt_block_list)
 
-# TODO доделать SL преобразование
+    def sl_transformation(self, crypt_block):
+        """
+
+        :param crypt_block: crypt block
+        :type crypt_block: MessageBlock
+        """
+        s_0 = sbox_1[crypt_block.message_block[0:8].int]
+        s_1 = sbox_2[crypt_block.message_block[8:16].int]
+        s_2 = sbox_3[crypt_block.message_block[16:24].int]
+        s_3 = sbox_4[crypt_block.message_block[24:32].int]
+        crypt_block_result = self.mdr_transformation(pack('uint:8, uint:8, uint:8, uint:8', s_0, s_1, s_2, s_3))
+        return MessageBlock(crypt_block_result)
+
+    def mdr_transformation(self, s_block):
+        """
+
+        :param s_block: s-block
+        :type s_block: BitArray
+        """
+        mdr_0 = s_block[0:8].int
+        mdr_1 = s_block[8:16].int
+        mdr_2 = s_block[16:24].int
+        mdr_3 = s_block[24:32].int
+        g0, g1, g2, g3 = galNI
+        result_0 = g0[mdr_0] ^ g1[mdr_1] ^ g2[mdr_2] ^ g3[mdr_3]
+        result_1 = g3[mdr_0] ^ g0[mdr_1] ^ g1[mdr_2] ^ g2[mdr_3]
+        result_2 = g2[mdr_0] ^ g3[mdr_1] ^ g0[mdr_2] ^ g1[mdr_3]
+        result_3 = g1[mdr_0] ^ g2[mdr_1] ^ g3[mdr_2] ^ g0[mdr_3]
+        return pack('uint:8, uint:8, uint:8, uint:8', result_0, result_1, result_2, result_3)
+
+
+def compare_bit_arrays(bit_array_1, bit_array_2):
+    """
+
+    :param bit_array_1:
+    :type bit_array_1: BitArray
+    :param bit_array_2:
+    :type bit_array_2: BitArray
+    """
+    if bit_array_1.length != bit_array_2.length:
+        return False, -1
+    equal_bits = 0
+    for bit_array_1_element, bit_array_2_element in zip(bit_array_1.bin, bit_array_2.bin):
+        if bit_array_1_element == bit_array_2_element:
+            equal_bits += 1
+    if equal_bits != 0:
+        return False, equal_bits
+    return True, 0
+
 
 m_k = MasterKey()
 message = Message()
 message.set_message_as_string("Hello, World!")
-print message.message_bit_array.bin[0:]
-print(message)
-message_blocks = message.get_message_blocks()
-message_from_blocks = Message.get_message_from_message_blocks(message_blocks)
-print (message_from_blocks)
+# print message.message_bit_array.bin[0:]
+# print(message)
+# message_blocks = message.get_message_blocks()
+# message_from_blocks = Message.get_message_from_message_blocks(message_blocks)
+# print (message_from_blocks)
 crypted = Crypter(master_key=m_k, message=message)
 encrypted_message = crypted.encrypt()
+print encrypted_message
+
+m_k = MasterKey()
+one_bit_changed_message = message.message_bit_array.copy()
+one_bit_changed_message.invert(35)
+changed_message = Message(one_bit_changed_message)
+changed_message_crypter = Crypter(master_key=m_k, message=changed_message)
+encrypted_changed_message = changed_message_crypter.encrypt()
+print encrypted_changed_message
+
+print "Аvalanche effect test. One bit changed. Crypted messages are equal? %r. Equal bits amount = %d" % compare_bit_arrays(
+    encrypted_message.message_bit_array, encrypted_changed_message.message_bit_array)
