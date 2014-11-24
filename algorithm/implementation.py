@@ -1,13 +1,8 @@
-# coding=utf-8
-from bitstring import BitArray, pack
+from bitstring import pack, BitArray
 
-from algorithm.util import sbox_1, sbox_2, sbox_3, sbox_4, galNI
+from algorithm.util import galNI, sbox_1, sbox_2, sbox_3, sbox_4
 
-
-__author__ = 'Iurii Sergiichuk <i.sergiichuk@samsung.com>'
-
-master_key = "0x3cc849279ba298b587a34cabaeffc5ecb3a044bbf97c516fab7ede9d1af77cfa"
-k = BitArray(master_key)
+__author__ = 'Iurii Sergiichuk <iurii.sergiichuk@gmail.com>'
 
 
 class MasterKey(object):
@@ -206,46 +201,3 @@ class Crypter(object):
         result_2 = g2[mdr_0] ^ g3[mdr_1] ^ g0[mdr_2] ^ g1[mdr_3]
         result_3 = g1[mdr_0] ^ g2[mdr_1] ^ g3[mdr_2] ^ g0[mdr_3]
         return pack('uint:8, uint:8, uint:8, uint:8', result_0, result_1, result_2, result_3)
-
-
-def compare_bit_arrays(bit_array_1, bit_array_2):
-    """
-
-    :param bit_array_1:
-    :type bit_array_1: BitArray
-    :param bit_array_2:
-    :type bit_array_2: BitArray
-    """
-    if bit_array_1.length != bit_array_2.length:
-        return False, -1
-    equal_bits = 0
-    for bit_array_1_element, bit_array_2_element in zip(bit_array_1.bin, bit_array_2.bin):
-        if bit_array_1_element == bit_array_2_element:
-            equal_bits += 1
-    if equal_bits != 0:
-        return False, equal_bits
-    return True, 0
-
-
-m_k = MasterKey()
-message = Message()
-message.set_message_as_string("Hello, World!")
-# print message.message_bit_array.bin[0:]
-# print(message)
-# message_blocks = message.get_message_blocks()
-# message_from_blocks = Message.get_message_from_message_blocks(message_blocks)
-# print (message_from_blocks)
-crypted = Crypter(master_key=m_k, message=message)
-encrypted_message = crypted.encrypt()
-print encrypted_message
-
-m_k = MasterKey()
-one_bit_changed_message = message.message_bit_array.copy()
-one_bit_changed_message.invert(35)
-changed_message = Message(one_bit_changed_message)
-changed_message_crypter = Crypter(master_key=m_k, message=changed_message)
-encrypted_changed_message = changed_message_crypter.encrypt()
-print encrypted_changed_message
-
-print "Аvalanche effect test. One bit changed. Crypted messages are equal? %r. Equal bits amount = %d" % compare_bit_arrays(
-    encrypted_message.message_bit_array, encrypted_changed_message.message_bit_array)

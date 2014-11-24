@@ -1,4 +1,4 @@
-__author__ = 'iurii'
+__author__ = 'Iurii Sergiichuk <iurii.sergiichuk@gmail.com>'
 
 gal1 = tuple(range(256))
 gal2 = (
