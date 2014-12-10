@@ -28,7 +28,7 @@ def main():
     k = BitArray(master_key)
     m_k = MasterKey()
     message = Message()
-    message_string = "Hello, World!"
+    message_string = "GujTMw57QnjDS314bmOtoAnLy4jTg8rq"
     message.set_message_as_string(message_string)
 
     print "Message: %s" % message_string

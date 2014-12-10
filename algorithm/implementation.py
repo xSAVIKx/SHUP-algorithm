@@ -156,14 +156,15 @@ class Crypter(object):
         # XOR first block with others
         for crypt_block_index in range(1, len(crypt_block_list)):
             crypt_block_list[0].message_block ^= crypt_block_list[crypt_block_index].message_block
+
+        # make first block SL transformation
+        crypt_block_list[0] = self.sl_transformation(crypt_block_list[0])
         # make SL transformation with XOR to next block
-        for crypt_block_index in range(0, len(crypt_block_list) - 1):
-            crypt_block_list[crypt_block_index].message_block = self.sl_transformation(
-                crypt_block_list[crypt_block_index]).message_block ^ \
-                                                                crypt_block_list[crypt_block_index + 1].message_block
-        # make SL transformation with last block
-        crypt_block_list[len(crypt_block_list) - 1] = self.sl_transformation(
-            crypt_block_list[len(crypt_block_list) - 1])
+        for crypt_block_index in range(1, len(crypt_block_list)):
+            crypt_xored_with_previous_block = MessageBlock(
+                crypt_block_list[crypt_block_index].message_block ^ crypt_block_list[
+                    crypt_block_index - 1].message_block)
+            crypt_block_list[crypt_block_index] = self.sl_transformation(crypt_xored_with_previous_block)
         for crypt_block_index in range(0, len(crypt_block_list) - 1):
             crypt_block_list[crypt_block_index].message_block ^= crypt_block_list[
                 len(crypt_block_list) - 1].message_block
